@@ -21,6 +21,7 @@
 
 package com.watabou.input;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputMultiplexer;
@@ -166,7 +167,7 @@ public class InputHandler extends InputAdapter {
 	
 	@Override
 	public synchronized boolean keyDown( int keyCode ) {
-		if (KeyBindings.isKeyBound( keyCode )) {
+		if (KeyBindings.isKeyBound( keyCode ) || altShortcutKey( keyCode )) {
 			KeyEvent.addKeyEvent( new KeyEvent( keyCode, true ) );
 			return true;
 		} else {
@@ -176,12 +177,18 @@ public class InputHandler extends InputAdapter {
 	
 	@Override
 	public synchronized boolean keyUp( int keyCode ) {
-		if (KeyBindings.isKeyBound( keyCode )) {
+		if (KeyBindings.isKeyBound( keyCode ) || altShortcutKey( keyCode )) {
 			KeyEvent.addKeyEvent( new KeyEvent( keyCode, false ) );
 			return true;
 		} else {
 			return false;
 		}
+	}
+
+	private boolean altShortcutKey( int keyCode ){
+		return keyCode == Input.Keys.S
+				&& (Gdx.input.isKeyPressed( Input.Keys.ALT_LEFT )
+				|| Gdx.input.isKeyPressed( Input.Keys.ALT_RIGHT ));
 	}
 	
 	// ********************
