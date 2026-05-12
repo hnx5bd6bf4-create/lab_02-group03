@@ -39,8 +39,9 @@ public class PathFinder {
 	private static int[] goalCells;
 	private static int goalCount;
 	private static int[] pathParent;
+	private static long[] pathBias;
 	private static int[] heapCells;
-	private static int[] heapPriorities;
+	private static long[] heapPriorities;
 	private static int heapSize;
 	private static int[] closed;
 	private static int searchId;
@@ -76,8 +77,9 @@ public class PathFinder {
 		goalCells = new int[size];
 		goalCount = 0;
 		pathParent = new int[size];
+		pathBias = new long[size];
 		heapCells = new int[size * 4];
-		heapPriorities = new int[size * 4];
+		heapPriorities = new long[size * 4];
 		heapSize = 0;
 		closed = new int[size];
 		searchId = 1;
@@ -279,7 +281,8 @@ public class PathFinder {
 
 		setDistance( from, 0 );
 		pathParent[from] = -1;
-		heapAdd( from, heuristic( from, to ) );
+		pathBias[from] = 0;
+		heapAdd( from, priority( from, to, from, 0 ) );
 
 		while (heapSize > 0) {
 
@@ -300,11 +303,15 @@ public class PathFinder {
 			for (int i = start; i < dirLR.length - end; i++) {
 
 				int n = step + dirLR[i];
-				if (n >= 0 && n < size && (n == to || passable[n])
-						&& closed[n] != searchId && distance[n] > nextDistance) {
+				if (n >= 0 && n < size && (n == to || passable[n]) && closed[n] != searchId) {
+					long nextBias = pathBias[step] + lineDeviation( from, to, n );
+					if (distance[n] < nextDistance || (distance[n] == nextDistance && pathBias[n] <= nextBias)) {
+						continue;
+					}
 					pathParent[n] = step;
+					pathBias[n] = nextBias;
 					setDistance( n, nextDistance );
-					heapAdd( n, nextDistance + heuristic( n, to ) );
+					heapAdd( n, priority( from, to, n, nextDistance ) );
 				}
 
 			}
@@ -328,7 +335,23 @@ public class PathFinder {
 		return Math.max( dx, dy );
 	}
 
-	private static void heapAdd( int cell, int priority ) {
+	private static long priority( int from, int to, int cell, int pathDistance ) {
+		long lineScale = (long)size * size;
+		long estimate = pathDistance + heuristic( cell, to );
+		return (estimate * size + lineDeviation( from, to, cell )) * lineScale + pathBias[cell];
+	}
+
+	private static int lineDeviation( int from, int to, int cell ) {
+		int fromX = from % width;
+		int fromY = from / width;
+		int toX = to % width;
+		int toY = to / width;
+		int cellX = cell % width;
+		int cellY = cell / width;
+		return Math.abs( (cellX - fromX) * (toY - fromY) - (cellY - fromY) * (toX - fromX) );
+	}
+
+	private static void heapAdd( int cell, long priority ) {
 		int index = heapSize++;
 
 		while (index > 0) {
@@ -348,7 +371,7 @@ public class PathFinder {
 	private static int heapRemove() {
 		int result = heapCells[0];
 		int cell = heapCells[--heapSize];
-		int priority = heapPriorities[heapSize];
+		long priority = heapPriorities[heapSize];
 
 		int index = 0;
 		while (true) {
