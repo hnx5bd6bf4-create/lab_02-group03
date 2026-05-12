@@ -53,6 +53,9 @@ public class PathFinderBenchmark {
 		Comparison limited = measurePair(
 				new Measurement() { @Override public Result run() { return measureOriginalLimitedMap(trials); } },
 				new Measurement() { @Override public Result run() { return measureOptimizedLimitedMap(trials); } });
+		Comparison retreat = measurePair(
+				new Measurement() { @Override public Result run() { return measureOriginalStepBack(trials); } },
+				new Measurement() { @Override public Result run() { return measureOptimizedStepBack(trials); } });
 
 		System.out.println("PathFinder benchmark");
 		System.out.println("Map: " + WIDTH + "x" + HEIGHT + ", trials: " + TRIALS + ", seed: " + SEED);
@@ -61,6 +64,7 @@ public class PathFinderBenchmark {
 		printComparison("getStep", step);
 		printComparison("find path", find);
 		printComparison("limited distance map", limited);
+		printComparison("getStepBack", retreat);
 	}
 
 	private static Trial[] createTrials(int count) {
@@ -128,6 +132,24 @@ public class PathFinderBenchmark {
 			PathFinder.buildDistanceMap(trial.source, trial.passable, trial.limit);
 			if (!Arrays.equals(originalDistance, PathFinder.distance)) {
 				throw new AssertionError("limited distance map mismatch at trial " + i);
+			}
+
+			boolean[] originalPassable = Arrays.copyOf(trial.passable, trial.passable.length);
+			boolean[] optimizedPassable = Arrays.copyOf(trial.passable, trial.passable.length);
+			int originalBack = OriginalPathFinder.getStepBack(trial.from, trial.to, trial.limit, originalPassable, true);
+			int optimizedBack = PathFinder.getStepBack(trial.from, trial.to, trial.limit, optimizedPassable, true);
+			if (originalBack != optimizedBack) {
+				throw new AssertionError("getStepBack mismatch at trial " + i
+						+ ": original=" + originalBack + ", optimized=" + optimizedBack);
+			}
+
+			originalPassable = Arrays.copyOf(trial.passable, trial.passable.length);
+			optimizedPassable = Arrays.copyOf(trial.passable, trial.passable.length);
+			originalBack = OriginalPathFinder.getStepBack(trial.from, trial.to, trial.limit, originalPassable, false);
+			optimizedBack = PathFinder.getStepBack(trial.from, trial.to, trial.limit, optimizedPassable, false);
+			if (originalBack != optimizedBack || !Arrays.equals(originalPassable, optimizedPassable)) {
+				throw new AssertionError("getStepBack no-approach mismatch at trial " + i
+						+ ": original=" + originalBack + ", optimized=" + optimizedBack);
 			}
 		}
 	}
@@ -211,6 +233,8 @@ public class PathFinderBenchmark {
 			PathFinder.find(trial.from, trial.to, trial.passable);
 			OriginalPathFinder.buildDistanceMap(trial.source, trial.passable, trial.limit);
 			PathFinder.buildDistanceMap(trial.source, trial.passable, trial.limit);
+			OriginalPathFinder.getStepBack(trial.from, trial.to, trial.limit, trial.passable, true);
+			PathFinder.getStepBack(trial.from, trial.to, trial.limit, trial.passable, true);
 		}
 	}
 
@@ -268,6 +292,24 @@ public class PathFinderBenchmark {
 		for (Trial trial : trials) {
 			PathFinder.buildDistanceMap(trial.source, trial.passable, trial.limit);
 			checksum += PathFinder.distance[trial.to];
+		}
+		return new Result(System.nanoTime() - start, checksum);
+	}
+
+	private static Result measureOriginalStepBack(Trial[] trials) {
+		long checksum = 0;
+		long start = System.nanoTime();
+		for (Trial trial : trials) {
+			checksum += OriginalPathFinder.getStepBack(trial.from, trial.to, trial.limit, trial.passable, true);
+		}
+		return new Result(System.nanoTime() - start, checksum);
+	}
+
+	private static Result measureOptimizedStepBack(Trial[] trials) {
+		long checksum = 0;
+		long start = System.nanoTime();
+		for (Trial trial : trials) {
+			checksum += PathFinder.getStepBack(trial.from, trial.to, trial.limit, trial.passable, true);
 		}
 		return new Result(System.nanoTime() - start, checksum);
 	}
@@ -352,7 +394,9 @@ public class PathFinderBenchmark {
 
 		static int[] distance;
 		private static int[] maxVal;
+		private static boolean[] goals;
 		private static int[] queue;
+		private static boolean[] queued;
 		private static int size = 0;
 		private static int width = 0;
 		private static int[] dir;
@@ -363,7 +407,9 @@ public class PathFinderBenchmark {
 			OriginalPathFinder.size = width * height;
 
 			distance = new int[size];
+			goals = new boolean[size];
 			queue = new int[size];
+			queued = new boolean[size];
 			maxVal = new int[size];
 			Arrays.fill(maxVal, Integer.MAX_VALUE);
 
@@ -411,6 +457,67 @@ public class PathFinderBenchmark {
 				if ((stepD = distance[step = from + dir[i]]) < minD) {
 					minD = stepD;
 					best = step;
+				}
+			}
+
+			return best;
+		}
+
+		static int getStepBack(int cur, int from, int lookahead, boolean[] passable, boolean canApproachFromPos) {
+			int d = buildEscapeDistanceMap(cur, from, lookahead, passable);
+			if (d == 0) return -1;
+
+			if (!canApproachFromPos) {
+				int head = 0;
+				int tail = 0;
+
+				int newD = distance[cur];
+				Arrays.fill(queued, false);
+
+				queue[tail++] = cur;
+				queued[cur] = true;
+
+				while (head < tail) {
+					int step = queue[head++];
+
+					if (distance[step] > newD) {
+						newD = distance[step];
+					}
+
+					int start = (step % width == 0 ? 3 : 0);
+					int end = ((step + 1) % width == 0 ? 3 : 0);
+					for (int i = start; i < dirLR.length - end; i++) {
+						int n = step + dirLR[i];
+						if (n >= 0 && n < size && passable[n]) {
+							if (distance[n] < distance[cur]) {
+								passable[n] = false;
+							} else if (distance[n] >= distance[step] && !queued[n]) {
+								queue[tail++] = n;
+								queued[n] = true;
+							}
+						}
+					}
+				}
+
+				d = Math.min(newD, d);
+			}
+
+			for (int i = 0; i < size; i++) {
+				goals[i] = distance[i] == d;
+			}
+			if (!buildDistanceMap(cur, goals, passable)) {
+				return -1;
+			}
+
+			int minD = distance[cur];
+			int best = cur;
+
+			for (int i = 0; i < dir.length; i++) {
+				int n = cur + dir[i];
+				int thisD = distance[n];
+				if (thisD < minD) {
+					minD = thisD;
+					best = n;
 				}
 			}
 
@@ -480,6 +587,86 @@ public class PathFinderBenchmark {
 			}
 
 			return pathFound;
+		}
+
+		private static boolean buildDistanceMap(int from, boolean[] to, boolean[] passable) {
+			if (to[from]) {
+				return false;
+			}
+
+			System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+
+			boolean pathFound = false;
+			int head = 0;
+			int tail = 0;
+
+			for (int i = 0; i < size; i++) {
+				if (to[i]) {
+					queue[tail++] = i;
+					distance[i] = 0;
+				}
+			}
+
+			while (head < tail) {
+				int step = queue[head++];
+				if (step == from) {
+					pathFound = true;
+					break;
+				}
+				int nextDistance = distance[step] + 1;
+
+				int start = (step % width == 0 ? 3 : 0);
+				int end = ((step + 1) % width == 0 ? 3 : 0);
+				for (int i = start; i < dirLR.length - end; i++) {
+					int n = step + dirLR[i];
+					if (n == from || (n >= 0 && n < size && passable[n] && distance[n] > nextDistance)) {
+						queue[tail++] = n;
+						distance[n] = nextDistance;
+					}
+				}
+			}
+
+			return pathFound;
+		}
+
+		private static int buildEscapeDistanceMap(int cur, int from, int lookAhead, boolean[] passable) {
+			System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+
+			int destDist = Integer.MAX_VALUE;
+			int head = 0;
+			int tail = 0;
+
+			queue[tail++] = from;
+			distance[from] = 0;
+
+			int dist = 0;
+
+			while (head < tail) {
+				int step = queue[head++];
+				dist = distance[step];
+
+				if (dist > destDist) {
+					return destDist;
+				}
+
+				if (step == cur) {
+					destDist = dist + lookAhead;
+				}
+
+				int nextDistance = dist + 1;
+
+				int start = (step % width == 0 ? 3 : 0);
+				int end = ((step + 1) % width == 0 ? 3 : 0);
+				for (int i = start; i < dirLR.length - end; i++) {
+					int n = step + dirLR[i];
+					if (n >= 0 && n < size && passable[n] && distance[n] > nextDistance) {
+						queue[tail++] = n;
+						distance[n] = nextDistance;
+					}
+				}
+			}
+
+			return dist;
 		}
 
 		@SuppressWarnings("serial")
