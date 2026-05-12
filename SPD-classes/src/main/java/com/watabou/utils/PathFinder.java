@@ -26,12 +26,17 @@ import java.util.LinkedList;
 
 public class PathFinder {
 	
+	private static final int INFINITY = Integer.MAX_VALUE;
+
 	public static int[] distance;
 	private static int[] maxVal;
 	
 	private static boolean[] goals;
 	private static int[] queue;
 	private static boolean[] queued; //currently only used in getStepBack, other can piggyback on distance
+	private static int[] visited;
+	private static int visitedCount;
+	private static boolean dirtyAll;
 	
 	private static int size = 0;
 	private static int width = 0;
@@ -59,9 +64,13 @@ public class PathFinder {
 		goals = new boolean[size];
 		queue = new int[size];
 		queued = new boolean[size];
+		visited = new int[size];
+		visitedCount = 0;
+		dirtyAll = false;
 
 		maxVal = new int[size];
-		Arrays.fill(maxVal, Integer.MAX_VALUE);
+		Arrays.fill(maxVal, INFINITY);
+		Arrays.fill(distance, INFINITY);
 
 		dir = new int[]{-1, +1, -width, +width, -width-1, -width+1, +width-1, +width+1};
 		dirLR = new int[]{-1-width, -1, -1+width, -width, +width, +1-width, +1, +1+width};
@@ -72,6 +81,25 @@ public class PathFinder {
 
 		CIRCLE4 = new int[]{-width, +1, +width, -1};
 		CIRCLE8 = new int[]{-width-1, -width, -width+1, +1, +width+1, +width, +width-1, -1};
+	}
+
+	private static void resetDistanceMap() {
+		if (dirtyAll) {
+			System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+			dirtyAll = false;
+		} else {
+			for (int i = 0; i < visitedCount; i++) {
+				distance[visited[i]] = INFINITY;
+			}
+		}
+		visitedCount = 0;
+	}
+
+	private static void setDistance( int cell, int value ) {
+		if (distance[cell] == INFINITY) {
+			visited[visitedCount++] = cell;
+		}
+		distance[cell] = value;
 	}
 
 	public static Path find( int from, int to, boolean[] passable ) {
@@ -208,6 +236,8 @@ public class PathFinder {
 		}
 
 		System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+		visitedCount = 0;
+		dirtyAll = true;
 		
 		boolean pathFound = false;
 		
@@ -247,14 +277,14 @@ public class PathFinder {
 	
 	public static void buildDistanceMap( int to, boolean[] passable, int limit ) {
 		
-		System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+		resetDistanceMap();
 		
 		int head = 0;
 		int tail = 0;
 		
 		// Add to queue
 		queue[tail++] = to;
-		distance[to] = 0;
+		setDistance( to, 0 );
 		
 		while (head < tail) {
 			
@@ -274,7 +304,7 @@ public class PathFinder {
 				if (n >= 0 && n < size && passable[n] && (distance[n] > nextDistance)) {
 					// Add to queue
 					queue[tail++] = n;
-					distance[n] = nextDistance;
+					setDistance( n, nextDistance );
 				}
 					
 			}
@@ -288,6 +318,8 @@ public class PathFinder {
 		}
 		
 		System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+		visitedCount = 0;
+		dirtyAll = true;
 		
 		boolean pathFound = false;
 		
@@ -333,16 +365,16 @@ public class PathFinder {
 	// distance from the position we are escaping from. Returns the highest found distance, up to the lookahead
 	private static int buildEscapeDistanceMap( int cur, int from, int lookAhead, boolean[] passable ) {
 		
-		System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+		resetDistanceMap();
 		
-		int destDist = Integer.MAX_VALUE;
+		int destDist = INFINITY;
 		
 		int head = 0;
 		int tail = 0;
 		
 		// Add to queue
 		queue[tail++] = from;
-		distance[from] = 0;
+		setDistance( from, 0 );
 		
 		int dist = 0;
 		
@@ -370,7 +402,7 @@ public class PathFinder {
 				if (n >= 0 && n < size && passable[n] && distance[n] > nextDistance) {
 					// Add to queue
 					queue[tail++] = n;
-					distance[n] = nextDistance;
+					setDistance( n, nextDistance );
 				}
 					
 			}
@@ -382,6 +414,8 @@ public class PathFinder {
 	public static void buildDistanceMap( int to, boolean[] passable ) {
 		
 		System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+		visitedCount = 0;
+		dirtyAll = true;
 		
 		int head = 0;
 		int tail = 0;
