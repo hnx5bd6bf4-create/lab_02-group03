@@ -78,6 +78,7 @@ public class PathFinderAStarCorrectnessTest {
 		verifyRoomDoorCorridorRoute();
 		verifyLShapedDungeonCorridor();
 		verifyOccupiedDestination();
+		verifyMonsterOccupiedCells();
 		verifyMappedRouteBeatsUnmappedShortcut();
 	}
 
@@ -112,6 +113,29 @@ public class PathFinderAStarCorrectnessTest {
 		passable[to] = false;
 
 		verifyCase(passable, from, to, "occupied destination cell");
+	}
+
+	private static void verifyMonsterOccupiedCells() {
+		boolean[] rerouteMap = new boolean[SIZE];
+		openRect(rerouteMap, 2, 4, 8, 10);
+		openHorizontal(rerouteMap, 9, 22, 5);
+		openHorizontal(rerouteMap, 9, 22, 9);
+		openRect(rerouteMap, 23, 4, 29, 10);
+
+		int blockingMonster = cell(15, 5);
+		rerouteMap[blockingMonster] = false;
+
+		PathFinder.Path reroutedPath = verifyCase(rerouteMap, cell(4, 7), cell(26, 7), "visible monster blocks one corridor");
+		assertNotContains(reroutedPath, blockingMonster, "path should not step through a visible monster");
+		assertTrue(pathCellRange(reroutedPath, 9, 22, 9), "path should use the lower corridor when the upper corridor is blocked");
+
+		boolean[] chokepointMap = new boolean[SIZE];
+		openRect(chokepointMap, 2, 5, 8, 11);
+		openHorizontal(chokepointMap, 9, 22, 8);
+		openRect(chokepointMap, 23, 5, 29, 11);
+		chokepointMap[cell(15, 8)] = false;
+
+		verifyCase(chokepointMap, cell(4, 8), cell(26, 8), "visible monster blocks the only corridor");
 	}
 
 	private static void verifyMappedRouteBeatsUnmappedShortcut() {
@@ -298,6 +322,12 @@ public class PathFinderAStarCorrectnessTest {
 		}
 	}
 
+	private static void assertTrue(boolean condition, String label) {
+		if (!condition) {
+			throw new AssertionError(label);
+		}
+	}
+
 	private static void assertContainsAny(PathFinder.Path path, int[] expectedCells, String label) {
 		if (path != null) {
 			for (int expectedCell : expectedCells) {
@@ -307,6 +337,24 @@ public class PathFinderAStarCorrectnessTest {
 			}
 		}
 		throw new AssertionError(label + ": expected path to contain one of " + Arrays.toString(expectedCells));
+	}
+
+	private static void assertNotContains(PathFinder.Path path, int blockedCell, String label) {
+		if (path != null && path.contains(blockedCell)) {
+			throw new AssertionError(label + ": blocked cell " + blockedCell + " was used");
+		}
+	}
+
+	private static boolean pathCellRange(PathFinder.Path path, int left, int right, int y) {
+		if (path == null) {
+			return false;
+		}
+		for (int x = left; x <= right; x++) {
+			if (path.contains(cell(x, y))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static void openRect(boolean[] passable, int left, int top, int right, int bottom) {
