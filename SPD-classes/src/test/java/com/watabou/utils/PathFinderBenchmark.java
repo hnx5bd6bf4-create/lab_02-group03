@@ -98,12 +98,20 @@ public class PathFinderBenchmark {
 	private static void verifyCorrectness(Trial[] trials) {
 		for (int i = 0; i < CORRECTNESS_TRIALS; i++) {
 			Trial trial = trials[i];
+			int shortestLength = shortestLength(trial);
 
 			int originalStep = OriginalPathFinder.getStep(trial.from, trial.to, trial.passable);
 			int optimizedStep = PathFinder.getStep(trial.from, trial.to, trial.passable);
-			if (originalStep != optimizedStep) {
-				throw new AssertionError("getStep mismatch at trial " + i
-						+ ": original=" + originalStep + ", optimized=" + optimizedStep);
+			if ((originalStep == -1) != (shortestLength == -1) || (optimizedStep == -1) != (shortestLength == -1)) {
+				throw new AssertionError("getStep reachability mismatch at trial " + i
+						+ ": original=" + originalStep + ", optimized=" + optimizedStep
+						+ ", shortestLength=" + shortestLength);
+			}
+			if (optimizedStep != -1 && !isShortestFirstStep(trial, optimizedStep, shortestLength)) {
+				throw new AssertionError("getStep returned a non-shortest first step at trial " + i
+						+ ": optimized=" + optimizedStep
+						+ ", shortestLength=" + shortestLength
+						+ ", remainingFromStep=" + shortestLength(optimizedStep, trial.to, trial.passable));
 			}
 
 			OriginalPathFinder.Path originalPath = OriginalPathFinder.find(trial.from, trial.to, trial.passable);
@@ -111,8 +119,8 @@ public class PathFinderBenchmark {
 			if (originalPath == null ^ optimizedPath == null) {
 				throw new AssertionError("find null mismatch at trial " + i);
 			}
-			if (originalPath != null && !originalPath.equals(optimizedPath)) {
-				throw new AssertionError("find path mismatch at trial " + i);
+			if (optimizedPath != null && (!isValidPath(trial, optimizedPath) || optimizedPath.size() != shortestLength)) {
+				throw new AssertionError("find path is invalid or non-shortest at trial " + i);
 			}
 
 			OriginalPathFinder.buildDistanceMap(trial.source, trial.passable, trial.limit);
@@ -122,6 +130,76 @@ public class PathFinderBenchmark {
 				throw new AssertionError("limited distance map mismatch at trial " + i);
 			}
 		}
+	}
+
+	private static boolean isShortestFirstStep(Trial trial, int step, int shortestLength) {
+		if (!isNeighbour(trial.from, step) || (step != trial.to && !trial.passable[step])) {
+			return false;
+		}
+		if (step == trial.to) {
+			return shortestLength == 1;
+		}
+		return shortestLength(step, trial.to, trial.passable) == shortestLength - 1;
+	}
+
+	private static boolean isValidPath(Trial trial, PathFinder.Path path) {
+		int previous = trial.from;
+
+		for (int step : path) {
+			if (!isNeighbour(previous, step) || (step != trial.to && !trial.passable[step])) {
+				return false;
+			}
+			previous = step;
+		}
+
+		return previous == trial.to;
+	}
+
+	private static boolean isNeighbour(int first, int second) {
+		int firstX = first % WIDTH;
+		int firstY = first / WIDTH;
+		int secondX = second % WIDTH;
+		int secondY = second / WIDTH;
+		return Math.max(Math.abs(firstX - secondX), Math.abs(firstY - secondY)) == 1;
+	}
+
+	private static int shortestLength(Trial trial) {
+		return shortestLength(trial.from, trial.to, trial.passable);
+	}
+
+	private static int shortestLength(int from, int to, boolean[] passable) {
+		if (from == to) {
+			return -1;
+		}
+
+		int[] shortest = new int[WIDTH * HEIGHT];
+		int[] bfsQueue = new int[WIDTH * HEIGHT];
+		Arrays.fill(shortest, Integer.MAX_VALUE);
+
+		int head = 0;
+		int tail = 0;
+		bfsQueue[tail++] = from;
+		shortest[from] = 0;
+
+		while (head < tail) {
+			int step = bfsQueue[head++];
+			int nextDistance = shortest[step] + 1;
+
+			int start = (step % WIDTH == 0 ? 3 : 0);
+			int end = ((step + 1) % WIDTH == 0 ? 3 : 0);
+			for (int i = start; i < OriginalPathFinder.dirLR.length - end; i++) {
+				int n = step + OriginalPathFinder.dirLR[i];
+				if (n == to) {
+					return nextDistance;
+				}
+				if (n >= 0 && n < shortest.length && passable[n] && shortest[n] == Integer.MAX_VALUE) {
+					shortest[n] = nextDistance;
+					bfsQueue[tail++] = n;
+				}
+			}
+		}
+
+		return -1;
 	}
 
 	private static void warmUp(Trial[] trials) {

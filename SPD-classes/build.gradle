@@ -19,3 +19,11 @@ task pathFinderBenchmark(type: JavaExec) {
     main = 'com.watabou.utils.PathFinderBenchmark'
     dependsOn testClasses
 }
+
+task pathFinderAStarTest(type: JavaExec) {
+    group = 'verification'
+    description = 'Verifies that A* PathFinder returns legal shortest paths.'
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'com.watabou.utils.PathFinderAStarCorrectnessTest'
+    dependsOn testClasses
+}

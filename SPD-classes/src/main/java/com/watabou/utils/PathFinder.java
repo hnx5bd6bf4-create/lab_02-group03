@@ -37,6 +37,12 @@ public class PathFinder {
 	private static int[] visited;
 	private static int visitedCount;
 	private static boolean dirtyAll;
+	private static int[] pathParent;
+	private static int[] heapCells;
+	private static int[] heapPriorities;
+	private static int heapSize;
+	private static int[] closed;
+	private static int searchId;
 	
 	private static int size = 0;
 	private static int width = 0;
@@ -67,6 +73,12 @@ public class PathFinder {
 		visited = new int[size];
 		visitedCount = 0;
 		dirtyAll = false;
+		pathParent = new int[size];
+		heapCells = new int[size * 4];
+		heapPriorities = new int[size * 4];
+		heapSize = 0;
+		closed = new int[size];
+		searchId = 1;
 
 		maxVal = new int[size];
 		Arrays.fill(maxVal, INFINITY);
@@ -104,57 +116,31 @@ public class PathFinder {
 
 	public static Path find( int from, int to, boolean[] passable ) {
 
-		if (!buildDistanceMap( from, to, passable )) {
+		if (!buildAStarPath( from, to, passable )) {
 			return null;
 		}
 		
 		Path result = new Path();
-		int s = from;
 
-		// From the starting position we are moving downwards,
-		// until we reach the ending point
-		do {
-			int minD = distance[s];
-			int mins = s;
-			
-			for (int i=0; i < dir.length; i++) {
-				
-				int n = s + dir[i];
-				
-				int thisD = distance[n];
-				if (thisD < minD) {
-					minD = thisD;
-					mins = n;
-				}
-			}
-			s = mins;
-			result.add( s );
-		} while (s != to);
+		for (int s = to; s != from; s = pathParent[s]) {
+			result.addFirst( s );
+		}
 		
 		return result;
 	}
 	
 	public static int getStep( int from, int to, boolean[] passable ) {
 		
-		if (!buildDistanceMap( from, to, passable )) {
+		if (!buildAStarPath( from, to, passable )) {
 			return -1;
 		}
 		
-		// From the starting position we are making one step downwards
-		int minD = distance[from];
-		int best = from;
-		
-		int step, stepD;
-		
-		for (int i=0; i < dir.length; i++) {
-
-			if ((stepD = distance[step = from + dir[i]]) < minD) {
-				minD = stepD;
-				best = step;
-			}
+		int step = to;
+		while (pathParent[step] != from) {
+			step = pathParent[step];
 		}
 
-		return best;
+		return step;
 	}
 	
 	public static int getStepBack( int cur, int from, int lookahead, boolean[] passable, boolean canApproachFromPos ) {
@@ -273,6 +259,113 @@ public class PathFinder {
 		}
 		
 		return pathFound;
+	}
+
+	private static boolean buildAStarPath( int from, int to, boolean[] passable ) {
+
+		if (from == to) {
+			return false;
+		}
+
+		System.arraycopy(maxVal, 0, distance, 0, maxVal.length);
+		visitedCount = 0;
+		dirtyAll = false;
+		nextSearchId();
+		heapSize = 0;
+
+		setDistance( from, 0 );
+		pathParent[from] = -1;
+		heapAdd( from, heuristic( from, to ) );
+
+		while (heapSize > 0) {
+
+			int step = heapRemove();
+			if (closed[step] == searchId) {
+				continue;
+			}
+			closed[step] = searchId;
+
+			if (step == to) {
+				return true;
+			}
+
+			int nextDistance = distance[step] + 1;
+
+			int start = (step % width == 0 ? 3 : 0);
+			int end   = ((step+1) % width == 0 ? 3 : 0);
+			for (int i = start; i < dirLR.length - end; i++) {
+
+				int n = step + dirLR[i];
+				if (n >= 0 && n < size && (n == to || passable[n])
+						&& closed[n] != searchId && distance[n] > nextDistance) {
+					pathParent[n] = step;
+					setDistance( n, nextDistance );
+					heapAdd( n, nextDistance + heuristic( n, to ) );
+				}
+
+			}
+		}
+
+		return false;
+	}
+
+	private static void nextSearchId() {
+		if (searchId == Integer.MAX_VALUE) {
+			Arrays.fill( closed, 0 );
+			searchId = 1;
+		} else {
+			searchId++;
+		}
+	}
+
+	private static int heuristic( int from, int to ) {
+		int dx = Math.abs( (from % width) - (to % width) );
+		int dy = Math.abs( (from / width) - (to / width) );
+		return Math.max( dx, dy );
+	}
+
+	private static void heapAdd( int cell, int priority ) {
+		int index = heapSize++;
+
+		while (index > 0) {
+			int parent = (index - 1) >>> 1;
+			if (heapPriorities[parent] <= priority) {
+				break;
+			}
+			heapCells[index] = heapCells[parent];
+			heapPriorities[index] = heapPriorities[parent];
+			index = parent;
+		}
+
+		heapCells[index] = cell;
+		heapPriorities[index] = priority;
+	}
+
+	private static int heapRemove() {
+		int result = heapCells[0];
+		int cell = heapCells[--heapSize];
+		int priority = heapPriorities[heapSize];
+
+		int index = 0;
+		while (true) {
+			int child = index * 2 + 1;
+			if (child >= heapSize) {
+				break;
+			}
+			if (child + 1 < heapSize && heapPriorities[child + 1] < heapPriorities[child]) {
+				child++;
+			}
+			if (heapPriorities[child] >= priority) {
+				break;
+			}
+			heapCells[index] = heapCells[child];
+			heapPriorities[index] = heapPriorities[child];
+			index = child;
+		}
+
+		heapCells[index] = cell;
+		heapPriorities[index] = priority;
+		return result;
 	}
 	
 	public static void buildDistanceMap( int to, boolean[] passable, int limit ) {
