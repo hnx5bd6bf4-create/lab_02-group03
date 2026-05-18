@@ -64,7 +64,7 @@ public class CleansingDart extends TippedDart {
 					{actPriority = VFX_PRIO;}
 					public boolean act() {
 						if (((Mob) defender).state == ((Mob) defender).HUNTING || ((Mob) defender).state == ((Mob) defender).FLEEING){
-							((Mob) defender).state = ((Mob) defender).WANDERING;
+							((Mob) defender).setState(((Mob) defender).WANDERING, "Cleansed by Cleansing Dart");
 						}
 						((Mob) defender).beckon(Dungeon.level.randomDestination(defender));
 						defender.sprite.showLost();

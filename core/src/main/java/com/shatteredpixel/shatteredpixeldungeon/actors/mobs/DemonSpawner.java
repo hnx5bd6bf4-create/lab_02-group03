@@ -50,7 +50,7 @@ public class DemonSpawner extends Mob {
 		EXP = 15;
 		maxLvl = 29;
 
-		state = PASSIVE;
+		setState(PASSIVE, "Initialized demon spawner passive state");
 
 		loot = PotionOfHealing.class;
 		lootChance = 1f;
@@ -110,7 +110,7 @@ public class DemonSpawner extends Mob {
 				RipperDemon spawn = new RipperDemon();
 
 				spawn.pos = Random.element( candidates );
-				spawn.state = spawn.HUNTING;
+				spawn.setState(spawn.HUNTING, "Summoned by demon spawner");
 
 				GameScene.add( spawn, 1 );
 				Dungeon.level.occupyCell(spawn);

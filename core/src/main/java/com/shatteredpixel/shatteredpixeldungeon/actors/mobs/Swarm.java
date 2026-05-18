@@ -104,7 +104,7 @@ public class Swarm extends Mob {
 				
 				Swarm clone = split();
 				clone.pos = Random.element( candidates );
-				clone.state = clone.HUNTING;
+				clone.setState(clone.HUNTING, "Swarm split into a hunting clone");
 				GameScene.add( clone, SPLIT_DELAY ); //we add before assigning HP due to ascension
 
 				clone.HP = (HP - damage) / 2;

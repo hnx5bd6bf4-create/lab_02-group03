@@ -105,7 +105,7 @@ public abstract class ChampionEnemy extends Buff {
 
 		if (Dungeon.mobsToChampion <= 0 && Dungeon.isChallenged(Challenges.CHAMPION_ENEMIES)) {
 			Buff.affect(m, buffCls);
-			m.state = m.WANDERING;
+			m.setState(m.WANDERING, "Champion enemy spawned with champion buff");
 		}
 	}
 

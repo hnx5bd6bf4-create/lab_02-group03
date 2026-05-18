@@ -50,7 +50,7 @@ public class TeleportationTrap extends Trap {
 			if (ch != null){
 				if (ScrollOfTeleportation.teleportChar(ch)) {
 					if (ch instanceof Mob && ((Mob) ch).state == ((Mob) ch).HUNTING) {
-						((Mob) ch).state = ((Mob) ch).WANDERING;
+						((Mob) ch).setState(((Mob) ch).WANDERING, "Teleported by Teleportation Trap");
 					}
 				}
 			}

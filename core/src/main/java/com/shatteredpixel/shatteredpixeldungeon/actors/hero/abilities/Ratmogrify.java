@@ -105,7 +105,7 @@ public class Ratmogrify extends ArmorAbility {
 
 					Rat rat = new Rat();
 					rat.alignment = Char.Alignment.ALLY;
-					rat.state = rat.HUNTING;
+					rat.setState(rat.HUNTING, "Spawned by Ratmogrify ratforcements");
 					Buff.affect(rat, AscensionChallenge.AscensionBuffBlocker.class);
 					GameScene.add( rat );
 					ScrollOfTeleportation.appear( rat, spawnPoints.get( index ) );
@@ -210,11 +210,11 @@ public class Ratmogrify extends ArmorAbility {
 			maxLvl = original.maxLvl;
 
 			if (original.state == original.SLEEPING) {
-				state = SLEEPING;
+				setState(SLEEPING, "Initialized from transformed mob state");
 			} else if (original.state == original.HUNTING) {
-				state = HUNTING;
+				setState(HUNTING, "Initialized from transformed mob state");
 			} else {
-				state = WANDERING;
+				setState(WANDERING, "Initialized from transformed mob state");
 			}
 
 		}

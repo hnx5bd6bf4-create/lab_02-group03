@@ -51,7 +51,9 @@ public class Blindweed extends Plant {
 				Buff.prolong(ch, Blindness.class, Blindness.DURATION);
 				Buff.prolong(ch, Cripple.class, Cripple.DURATION);
 				if (ch instanceof Mob) {
-					if (((Mob) ch).state == ((Mob) ch).HUNTING) ((Mob) ch).state = ((Mob) ch).WANDERING;
+					if (((Mob) ch).state == ((Mob) ch).HUNTING) {
+						((Mob) ch).setState(((Mob) ch).WANDERING, "Blinded by Blindweed");
+					}
 					((Mob) ch).beckon(Dungeon.level.randomDestination( ch ));
 				}
 			}

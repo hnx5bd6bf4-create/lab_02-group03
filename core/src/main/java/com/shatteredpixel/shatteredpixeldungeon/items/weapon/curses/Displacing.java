@@ -48,7 +48,7 @@ public class Displacing extends Weapon.Enchantment {
 				}
 
 				if (defender instanceof Mob && ((Mob) defender).state == ((Mob) defender).HUNTING){
-					((Mob) defender).state = ((Mob) defender).WANDERING;
+					((Mob) defender).setState(((Mob) defender).WANDERING, "Teleported by Displacing curse");
 				}
 			}
 		}

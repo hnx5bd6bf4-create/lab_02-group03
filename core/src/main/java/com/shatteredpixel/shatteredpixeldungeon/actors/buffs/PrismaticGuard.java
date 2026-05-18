@@ -78,7 +78,7 @@ public class PrismaticGuard extends Buff {
 				if (powerOfManyTurns > 0){
 					Buff.affect(pris, PowerOfMany.PowerBuff.class, powerOfManyTurns);
 				}
-				pris.state = pris.HUNTING;
+				pris.setState(pris.HUNTING, "Prismatic guard spawned to defend hero");
 				GameScene.add(pris, 1);
 				ScrollOfTeleportation.appear(pris, bestPos);
 				

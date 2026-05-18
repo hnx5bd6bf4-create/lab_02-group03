@@ -115,64 +115,76 @@ public abstract class Mob extends Char {
 	public AiState FLEEING		= new Fleeing();
 	public AiState PASSIVE		= new Passive();
 	public AiState state = SLEEPING;
-	protected void setState(AiState newState, String reason) {
-    if (newState == null || state == newState) {
-        return;
-    }
+	public final void setState(AiState newState, String reason) {
+		if (newState == null || state == newState) {
+			return;
+		}
 
-    String oldStateName = stateName(state);
-    String newStateName = stateName(newState);
+		String oldStateName = stateName(state);
+		String newStateName = stateName(newState);
 
     state = newState;
+		MobBehaviorLogger.logStateTransition(this, oldStateName, newStateName, reason);
+	}
 
-    MobBehaviorLogger.logStateTransition(this, oldStateName, newStateName, reason);
-}
+	protected final void setTargetCell(int newTarget, String reason) {
+		if (target == newTarget) {
+			return;
+		}
 
-protected void setTargetCell(int newTarget, String reason) {
-    if (target == newTarget) {
-        return;
-    }
+		target = newTarget;
+		MobBehaviorLogger.logTargetCell(this, newTarget, reason);
+	}
 
-    target = newTarget;
+	protected final void setEnemy(Char newEnemy, String reason) {
+		if (enemy == newEnemy) {
+			return;
+		}
 
-    MobBehaviorLogger.logTargetCell(this, newTarget, reason);
-}
+		enemy = newEnemy;
+		MobBehaviorLogger.logTargetAssignment(this, newEnemy, reason);
+	}
 
-protected void setEnemy(Char newEnemy, String reason) {
-    if (enemy == newEnemy) {
-        return;
-    }
+	protected final void setAlerted(boolean value, String reason) {
+		if (alerted == value) {
+			return;
+		}
 
-    enemy = newEnemy;
+		alerted = value;
+		MobBehaviorLogger.trackAlertStatus(this, value, reason);
+	}
 
-    MobBehaviorLogger.logTargetAssignment(this, newEnemy, reason);
-}
+	public final String behaviorStateName() {
+		return stateName(state);
+	}
 
-protected void setAlerted(boolean value, String reason) {
-    if (alerted == value) {
-        return;
-    }
+	public final Char behaviorEnemy() {
+		return enemy;
+	}
 
-    alerted = value;
+	public final int behaviorTargetCell() {
+		return target;
+	}
 
-    MobBehaviorLogger.logAlertStatus(this, value, reason);
-}
+	public final boolean behaviorAlerted() {
+		return alerted;
+	}
 
-protected String stateName(AiState aiState) {
-    if (aiState == SLEEPING) {
-        return "SLEEPING";
-    } else if (aiState == WANDERING) {
-        return "WANDERING";
-    } else if (aiState == HUNTING) {
-        return "HUNTING";
-    } else if (aiState == FLEEING) {
-        return "FLEEING";
-    } else if (aiState == PASSIVE) {
-        return "PASSIVE";
-    } else {
-        return aiState == null ? "null" : aiState.getClass().getSimpleName();
-    }
-}
+	protected String stateName(AiState aiState) {
+		if (aiState == SLEEPING) {
+			return "SLEEPING";
+		} else if (aiState == WANDERING) {
+			return "WANDERING";
+		} else if (aiState == HUNTING) {
+			return "HUNTING";
+		} else if (aiState == FLEEING) {
+			return "FLEEING";
+		} else if (aiState == PASSIVE) {
+			return "PASSIVE";
+		} else {
+			return aiState == null ? "null" : aiState.getClass().getSimpleName();
+		}
+	}
 
 	
 	public Class<? extends CharSprite> spriteClass;
@@ -194,12 +206,14 @@ protected String stateName(AiState aiState) {
 	protected boolean firstAdded = true;
 	protected void onAdd(){
 		if (firstAdded) {
-			MobBehaviorLogger.logMobSpawn(this);// add code 1
 			//modify health for ascension challenge if applicable, only on first add
 			float percent = HP / (float) HT;
 			HT = Math.round(HT * AscensionChallenge.statModifier(this));
 			HP = Math.round(HT * percent);
+			MobBehaviorLogger.onMobAdded(this, true);
 			firstAdded = false;
+		} else {
+			MobBehaviorLogger.onMobAdded(this, false);
 		}
 	}
 
@@ -280,6 +294,7 @@ protected String stateName(AiState aiState) {
 	protected boolean act() {
 		
 		super.act();
+		MobBehaviorLogger.sync(this, "Mob act start");
 		
 		boolean justAlerted = alerted;
 		alerted = false;
@@ -294,6 +309,7 @@ protected String stateName(AiState aiState) {
 		if (paralysed > 0) {
 			enemySeen = false;
 			spend( TICK );
+			MobBehaviorLogger.sync(this, "Mob act end");
 			return true;
 		}
 
@@ -301,7 +317,7 @@ protected String stateName(AiState aiState) {
 			setState(FLEEING, "Mob affected by Terror or Dread");
 		}
 		
-		enemy = chooseEnemy();
+		setEnemy(chooseEnemy(), "Enemy selected by AI");
 		
 		boolean enemyInFOV = enemy != null && enemy.isAlive() && fieldOfView[enemy.pos] && enemy.invisible <= 0;
 
@@ -309,6 +325,7 @@ protected String stateName(AiState aiState) {
 		if (buff(Feint.AfterImage.FeintConfusion.class) != null){
 			enemySeen = enemyInFOV;
 			spend( TICK );
+			MobBehaviorLogger.sync(this, "Mob act end");
 			return true;
 		}
 
@@ -320,6 +337,7 @@ protected String stateName(AiState aiState) {
 			GameScene.updateFog(pos, viewDistance+(int)Math.ceil(speed()));
 		}
 
+		MobBehaviorLogger.sync(this, "Mob act end");
 		return result;
 	}
 	
@@ -347,13 +365,13 @@ protected String stateName(AiState aiState) {
 		//if we are an alert enemy, auto-hunt a target that is affected by aggression, even another enemy
 		if ((alignment == Alignment.ENEMY || buff(Amok.class) != null ) && state != PASSIVE && state != SLEEPING) {
 			if (enemy != null && enemy.buff(StoneOfAggression.Aggression.class) != null){
-				state = HUNTING;
+				setState(HUNTING, "Aggression effect target retained");
 				return enemy;
 			}
 			for (Char ch : Actor.chars()) {
 				if (ch != this && fieldOfView[ch.pos] &&
 						ch.buff(StoneOfAggression.Aggression.class) != null) {
-					state = HUNTING;
+					setState(HUNTING, "Aggression effect target acquired");
 					return ch;
 				}
 			}
@@ -499,7 +517,7 @@ protected String stateName(AiState aiState) {
 	public boolean add( Buff buff ) {
 		if (super.add( buff )) {
 			if (buff instanceof Amok || buff instanceof AllyBuff) {
-				setState(HUNTING, "Buff added: " + buff.getClass().getSimpleName());//add code 3
+				setState(HUNTING, "Buff added: " + buff.getClass().getSimpleName());
 			} else if (buff instanceof Terror || buff instanceof Dread) {
 				setState(FLEEING, "Buff added: " + buff.getClass().getSimpleName());
 			} else if (buff instanceof Sleep) {
@@ -518,7 +536,7 @@ protected String stateName(AiState aiState) {
 					|| (buff instanceof Dread && buff(Terror.class) == null))) {
 				if (enemySeen) {
 					sprite.showStatus(CharSprite.WARNING, Messages.get(this, "rage"));
-					setState(HUNTING, "Fear effect removed and enemy is visible");// add code 4
+					setState(HUNTING, "Fear effect removed and enemy is visible");
 				} else {
 					setState(WANDERING, "Fear effect removed and enemy is not visible");
 				}
@@ -790,7 +808,7 @@ protected String stateName(AiState aiState) {
 		if (state != FLEEING) {
 			if (state != HUNTING) {
 				aggro(enemy);
-				target = enemy.pos;
+				setTargetCell(enemy.pos, "Aggro target position updated after defense");
 			} else {
 				recentlyAttackedBy.add(enemy);
 			}
@@ -838,7 +856,7 @@ protected String stateName(AiState aiState) {
 	}
 
 	public void aggro( Char ch ) {
-		setEnemy(ch, "Aggro target assigned");// add code 6
+		setEnemy(ch, "Aggro target assigned");
 		
 		if (state != PASSIVE){
 			setState(HUNTING, "Aggro triggered");
@@ -846,7 +864,7 @@ protected String stateName(AiState aiState) {
 	}
 
 	public void clearEnemy(){
-		setEnemy(null, "Enemy cleared");// add code 7
+		setEnemy(null, "Enemy cleared");
 		enemySeen = false;
 		
 		if (state == HUNTING) {
@@ -863,15 +881,15 @@ protected String stateName(AiState aiState) {
 
 		if (!isInvulnerable(src.getClass())) {
 			if (state == SLEEPING) {
-				state = WANDERING;
+				setState(WANDERING, "Damaged while sleeping");
 			}
 			if (!(src instanceof Corruption) && state != FLEEING) {
 				if (state != HUNTING) {
-					setAlerted(true, "Mob damaged while not hunting");// add code 5
+					setAlerted(true, "Mob damaged while not hunting");
 					//assume the hero is hitting us in these common cases
 					if (src instanceof Wand || src instanceof ClericSpell || src instanceof ArmorAbility) {
 						aggro(Dungeon.hero);
-						target = Dungeon.hero.pos;
+						setTargetCell(Dungeon.hero.pos, "Damaged by ranged hero source");
 					}
 				} else {
 					if (src instanceof Wand || src instanceof ClericSpell || src instanceof ArmorAbility) {
@@ -1085,7 +1103,7 @@ protected String stateName(AiState aiState) {
 		notice();
 		
 		if (state != HUNTING && state != FLEEING) {
-			setState(WANDERING, "Mob beckoned");// add code 8
+			setState(WANDERING, "Mob beckoned");
 		}
 		
 		setTargetCell(cell, "Mob beckoned to target cell");
@@ -1187,12 +1205,12 @@ protected String stateName(AiState aiState) {
 			if (enemyInFOV) {
 				enemySeen = true;
 				notice();
-				state = HUNTING;
-				target = enemy.pos;
+				setState(HUNTING, "Awakened with enemy in FOV");
+				setTargetCell(enemy.pos, "Awakened target acquired");
 			} else {
 				notice();
-				state = WANDERING;
-				target = Dungeon.level.randomDestination( Mob.this );
+				setState(WANDERING, "Awakened without enemy in FOV");
+				setTargetCell(Dungeon.level.randomDestination( Mob.this ), "Awakened random destination");
 			}
 
 			if (alignment == Alignment.ENEMY && Dungeon.isChallenged(Challenges.SWARM_INTELLIGENCE)) {
@@ -1229,9 +1247,9 @@ protected String stateName(AiState aiState) {
 			enemySeen = true;
 			
 			notice();
-			alerted = true;
-			state = HUNTING;
-			target = enemy.pos;
+			setAlerted(true, "Enemy noticed while wandering");
+			setState(HUNTING, "Enemy noticed while wandering");
+			setTargetCell(enemy.pos, "Enemy noticed while wandering");
 			
 			if (alignment == Alignment.ENEMY && Dungeon.isChallenged( Challenges.SWARM_INTELLIGENCE )) {
 				for (Mob mob : Dungeon.level.mobs) {
@@ -1254,7 +1272,7 @@ protected String stateName(AiState aiState) {
 				spend( 1 / speed() );
 				return moveSprite( oldPos, pos );
 			} else {
-				target = randomDestination();
+				setTargetCell(randomDestination(), "Continue wandering");
 				spend( TICK );
 			}
 			
@@ -1283,7 +1301,7 @@ protected String stateName(AiState aiState) {
 			if (enemyInFOV && !isCharmedBy( enemy ) && canAttack( enemy )) {
 
 				recentlyAttackedBy.clear();
-				target = enemy.pos;
+				setTargetCell(enemy.pos, "Attacking visible enemy");
 				return doAttack( enemy );
 
 			} else {
@@ -1295,8 +1313,8 @@ protected String stateName(AiState aiState) {
 					for (Char ch : recentlyAttackedBy){
 						if (ch != null && ch.isActive() && Actor.chars().contains(ch) && alignment != ch.alignment && fieldOfView[ch.pos] && ch.invisible == 0 && !isCharmedBy(ch)) {
 							if (canAttack(ch) || enemy == null || Dungeon.level.distance(pos, ch.pos) < Dungeon.level.distance(pos, enemy.pos)) {
-								enemy = ch;
-								target = ch.pos;
+								setEnemy(ch, "Swapped to recently attacking enemy");
+								setTargetCell(ch.pos, "Swapped to recently attacking enemy");
 								enemyInFOV = true;
 								swapped = true;
 							}
@@ -1309,11 +1327,11 @@ protected String stateName(AiState aiState) {
 				}
 
 				if (enemyInFOV) {
-					target = enemy.pos;
+					setTargetCell(enemy.pos, "Tracking visible enemy");
 				} else if (enemy == null) {
 					sprite.showLost();
-					state = WANDERING;
-					target = ((Mob.Wandering)WANDERING).randomDestination();
+					setState(WANDERING, "Enemy lost while hunting");
+					setTargetCell(((Mob.Wandering)WANDERING).randomDestination(), "Enemy lost while hunting");
 					spend( TICK );
 					return true;
 				}
@@ -1330,9 +1348,9 @@ protected String stateName(AiState aiState) {
 					//unless we have already done that and still can't move toward them, then move on.
 					if (!recursing) {
 						Char oldEnemy = enemy;
-						enemy = null;
-						enemy = chooseEnemy();
-						if (enemy != null && enemy != oldEnemy) {
+						Char nextEnemy = chooseEnemy();
+						if (nextEnemy != null && nextEnemy != oldEnemy) {
+							setEnemy(nextEnemy, "Switched to closer reachable enemy");
 							recursing = true;
 							boolean result = act(enemyInFOV, justAlerted);
 							recursing = false;
@@ -1343,8 +1361,8 @@ protected String stateName(AiState aiState) {
 					spend( TICK );
 					if (!enemyInFOV) {
 						sprite.showLost();
-						state = WANDERING;
-						target = ((Mob.Wandering)WANDERING).randomDestination();
+						setState(WANDERING, "Could not path to enemy");
+						setTargetCell(((Mob.Wandering)WANDERING).randomDestination(), "Could not path to enemy");
 					}
 					return true;
 				}
@@ -1369,7 +1387,7 @@ protected String stateName(AiState aiState) {
 			
 			//if enemy isn't in FOV, keep running from their previous position.
 			} else if (enemyInFOV) {
-				target = enemy.pos;
+				setTargetCell(enemy.pos, "Fleeing from visible enemy");
 			}
 
 			int oldPos = pos;
@@ -1396,9 +1414,9 @@ protected String stateName(AiState aiState) {
 			if (buff( Terror.class ) == null && buff( Dread.class ) == null) {
 				if (enemySeen) {
 					sprite.showStatus(CharSprite.WARNING, Messages.get(Mob.class, "rage"));
-					state = HUNTING;
+					setState(HUNTING, "No escape path while enemy seen");
 				} else {
-					state = WANDERING;
+					setState(WANDERING, "No escape path and enemy not seen");
 				}
 			}
 		}

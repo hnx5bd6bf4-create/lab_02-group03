@@ -106,7 +106,7 @@ public class CrystalMimic extends Mimic {
 	}
 
 	public void stopHiding(){
-		state = FLEEING;
+		setState(FLEEING, "Crystal mimic revealed and started fleeing");
 		if (sprite != null) sprite.idle();
 		//haste for 2 turns if attacking
 		if (alignment == Alignment.NEUTRAL){
@@ -140,7 +140,7 @@ public class CrystalMimic extends Mimic {
 				ScrollOfTeleportation.appear(enemy, Random.element(candidates));
 			}
 
-			if (alignment == Alignment.ENEMY) state = FLEEING;
+			if (alignment == Alignment.ENEMY) setState(FLEEING, "Crystal mimic attacked and resumed fleeing");
 		}
 		return super.attackProc(enemy, damage);
 	}
@@ -190,7 +190,7 @@ public class CrystalMimic extends Mimic {
 				destroy();
 				sprite.killAndErase();
 			} else {
-				state = WANDERING;
+				setState(WANDERING, "Crystal mimic could not escape and resumed wandering");
 			}
 		}
 

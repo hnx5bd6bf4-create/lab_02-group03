@@ -103,7 +103,7 @@ public class GravityChaosTracker extends Buff {
 				continue;
 			} else {
 				if (ch instanceof Mob && ((Mob) ch).state == ((Mob) ch).SLEEPING){
-					((Mob) ch).state = ((Mob) ch).WANDERING;
+					((Mob) ch).setState(((Mob) ch).WANDERING, "Moved by gravity chaos");
 				}
 				Ballistica path = new Ballistica(ch.pos, ch.pos + PathFinder.NEIGHBOURS8[idx], Ballistica.MAGIC_BOLT);
 				if (path.dist == 1 && Actor.findChar(path.collisionPos) != null){

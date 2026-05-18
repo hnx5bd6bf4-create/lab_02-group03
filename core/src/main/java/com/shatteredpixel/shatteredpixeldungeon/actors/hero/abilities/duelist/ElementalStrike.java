@@ -499,7 +499,7 @@ public class ElementalStrike extends ArmorAbility {
 						}
 
 						if (ch instanceof Mob && ((Mob) ch).state == ((Mob) ch).HUNTING){
-							((Mob) ch).state = ((Mob) ch).WANDERING;
+							((Mob) ch).setState(((Mob) ch).WANDERING, "Teleported by Elemental Strike");
 						}
 					}
 				}
