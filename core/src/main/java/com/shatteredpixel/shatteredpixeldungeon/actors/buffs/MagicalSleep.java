@@ -49,7 +49,7 @@ public class MagicalSleep extends Buff {
 			}
 
 			if (target instanceof Mob) {
-				((Mob) target).state = ((Mob) target).SLEEPING;
+				((Mob) target).setState(((Mob) target).SLEEPING, "Affected by Magical Sleep");
 			}
 
 			return true;

@@ -128,7 +128,7 @@ public class Thief extends Mob {
 		
 		if (alignment == Alignment.ENEMY && item == null
 				&& enemy instanceof Hero && steal( (Hero)enemy )) {
-			state = FLEEING;
+			setState(FLEEING, "Thief stole an item and started fleeing");
 		}
 
 		return damage;
@@ -187,7 +187,7 @@ public class Thief extends Mob {
 			
 			//if an enemy is just noticed and the thief posses an item, run, don't fight.
 			if (state == HUNTING && item != null){
-				state = FLEEING;
+				setState(FLEEING, "Thief noticed enemy while carrying stolen item");
 			}
 			
 			return true;
@@ -221,9 +221,9 @@ public class Thief extends Mob {
 
 				if (item != null) GLog.n( Messages.get(Thief.class, "escapes", item.name()));
 				item = null;
-				state = WANDERING;
+				setState(WANDERING, "Thief escaped after fleeing");
 			} else {
-				state = WANDERING;
+				setState(WANDERING, "Thief stopped fleeing and resumed wandering");
 			}
 		}
 	}

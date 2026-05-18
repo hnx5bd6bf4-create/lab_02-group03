@@ -421,7 +421,7 @@ public class PrisonBossLevel extends Level {
 				Mob.holdAllies(this, doorPos);
 				Mob.restoreAllies(this, Dungeon.hero.pos, doorPos);
 				
-				tengu.state = tengu.HUNTING;
+				tengu.setState(tengu.HUNTING, "Tengu boss fight started");
 				tengu.pos = tenguPos;
 				GameScene.add( tengu );
 				tengu.notice();
@@ -468,7 +468,7 @@ public class PrisonBossLevel extends Level {
 				setMapArena();
 				cleanMapState();
 				
-				tengu.state = tengu.HUNTING;
+				tengu.setState(tengu.HUNTING, "Tengu arena phase started");
 				tengu.pos = (arena.left + arena.width()/2) + width()*(arena.top+2);
 				GameScene.add(tengu);
 				tengu.timeToNow();

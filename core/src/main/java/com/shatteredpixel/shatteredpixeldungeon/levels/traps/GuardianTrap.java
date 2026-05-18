@@ -59,7 +59,7 @@ public class GuardianTrap extends Trap {
 		for (int i = 0; i < (scalingDepth() - 5)/5; i++){
 			Guardian guardian = new Guardian();
 			guardian.createWeapon(false);
-			guardian.state = guardian.WANDERING;
+			guardian.setState(guardian.WANDERING, "Summoned by Guardian Trap");
 			guardian.pos = Dungeon.level.randomRespawnCell( guardian );
 			if (guardian.pos != -1) {
 				GameScene.add(guardian);
@@ -94,7 +94,7 @@ public class GuardianTrap extends Trap {
 			notice();
 
 			if (state != HUNTING) {
-				state = WANDERING;
+				setState(WANDERING, "Guardian redirected by beckon");
 			}
 			target = cell;
 		}

@@ -43,7 +43,7 @@ public class Statue extends Mob {
 		spriteClass = StatueSprite.class;
 
 		EXP = 0;
-		state = PASSIVE;
+		setState(PASSIVE, "Initialized statue passive state");
 		
 		properties.add(Property.INORGANIC);
 	}
@@ -113,7 +113,7 @@ public class Statue extends Mob {
 	public boolean add(Buff buff) {
 		if (super.add(buff)) {
 			if (state == PASSIVE && buff.type == Buff.buffType.NEGATIVE) {
-				state = HUNTING;
+				setState(HUNTING, "Statue awakened by negative buff");
 			}
 			return true;
 		}
@@ -124,7 +124,7 @@ public class Statue extends Mob {
 	public void damage( int dmg, Object src ) {
 
 		if (state == PASSIVE) {
-			state = HUNTING;
+			setState(HUNTING, "Statue awakened by taking damage");
 		}
 		
 		super.damage( dmg, src );

@@ -21,6 +21,7 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.actors.mobs;
 
+import com.shatteredpixel.shatteredpixeldungeon.utils.MobBehaviorLogger;
 import com.shatteredpixel.shatteredpixeldungeon.Assets;
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.Challenges;
@@ -114,6 +115,77 @@ public abstract class Mob extends Char {
 	public AiState FLEEING		= new Fleeing();
 	public AiState PASSIVE		= new Passive();
 	public AiState state = SLEEPING;
+	public final void setState(AiState newState, String reason) {
+		if (newState == null || state == newState) {
+			return;
+		}
+
+		String oldStateName = stateName(state);
+		String newStateName = stateName(newState);
+
+    state = newState;
+		MobBehaviorLogger.logStateTransition(this, oldStateName, newStateName, reason);
+	}
+
+	protected final void setTargetCell(int newTarget, String reason) {
+		if (target == newTarget) {
+			return;
+		}
+
+		target = newTarget;
+		MobBehaviorLogger.logTargetCell(this, newTarget, reason);
+	}
+
+	protected final void setEnemy(Char newEnemy, String reason) {
+		if (enemy == newEnemy) {
+			return;
+		}
+
+		enemy = newEnemy;
+		MobBehaviorLogger.logTargetAssignment(this, newEnemy, reason);
+	}
+
+	protected final void setAlerted(boolean value, String reason) {
+		if (alerted == value) {
+			return;
+		}
+
+		alerted = value;
+		MobBehaviorLogger.trackAlertStatus(this, value, reason);
+	}
+
+	public final String behaviorStateName() {
+		return stateName(state);
+	}
+
+	public final Char behaviorEnemy() {
+		return enemy;
+	}
+
+	public final int behaviorTargetCell() {
+		return target;
+	}
+
+	public final boolean behaviorAlerted() {
+		return alerted;
+	}
+
+	protected String stateName(AiState aiState) {
+		if (aiState == SLEEPING) {
+			return "SLEEPING";
+		} else if (aiState == WANDERING) {
+			return "WANDERING";
+		} else if (aiState == HUNTING) {
+			return "HUNTING";
+		} else if (aiState == FLEEING) {
+			return "FLEEING";
+		} else if (aiState == PASSIVE) {
+			return "PASSIVE";
+		} else {
+			return aiState == null ? "null" : aiState.getClass().getSimpleName();
+		}
+	}
+
 	
 	public Class<? extends CharSprite> spriteClass;
 	
@@ -138,7 +210,10 @@ public abstract class Mob extends Char {
 			float percent = HP / (float) HT;
 			HT = Math.round(HT * AscensionChallenge.statModifier(this));
 			HP = Math.round(HT * percent);
+			MobBehaviorLogger.onMobAdded(this, true);
 			firstAdded = false;
+		} else {
+			MobBehaviorLogger.onMobAdded(this, false);
 		}
 	}
 
@@ -219,6 +294,7 @@ public abstract class Mob extends Char {
 	protected boolean act() {
 		
 		super.act();
+		MobBehaviorLogger.sync(this, "Mob act start");
 		
 		boolean justAlerted = alerted;
 		alerted = false;
@@ -233,6 +309,7 @@ public abstract class Mob extends Char {
 		if (paralysed > 0) {
 			enemySeen = false;
 			spend( TICK );
+			MobBehaviorLogger.sync(this, "Mob act end");
 			return true;
 		}
 
@@ -240,7 +317,7 @@ public abstract class Mob extends Char {
 			state = FLEEING;
 		}
 		
-		enemy = chooseEnemy();
+		setEnemy(chooseEnemy(), "Enemy selected by AI");
 		
 		boolean enemyInFOV = enemy != null && enemy.isAlive() && fieldOfView[enemy.pos] && enemy.invisible <= 0;
 
@@ -248,6 +325,7 @@ public abstract class Mob extends Char {
 		if (buff(Feint.AfterImage.FeintConfusion.class) != null){
 			enemySeen = enemyInFOV;
 			spend( TICK );
+			MobBehaviorLogger.sync(this, "Mob act end");
 			return true;
 		}
 
@@ -259,6 +337,7 @@ public abstract class Mob extends Char {
 			GameScene.updateFog(pos, viewDistance+(int)Math.ceil(speed()));
 		}
 
+		MobBehaviorLogger.sync(this, "Mob act end");
 		return result;
 	}
 	
@@ -286,13 +365,13 @@ public abstract class Mob extends Char {
 		//if we are an alert enemy, auto-hunt a target that is affected by aggression, even another enemy
 		if ((alignment == Alignment.ENEMY || buff(Amok.class) != null ) && state != PASSIVE && state != SLEEPING) {
 			if (enemy != null && enemy.buff(StoneOfAggression.Aggression.class) != null){
-				state = HUNTING;
+				setState(HUNTING, "Aggression effect target retained");
 				return enemy;
 			}
 			for (Char ch : Actor.chars()) {
 				if (ch != this && fieldOfView[ch.pos] &&
 						ch.buff(StoneOfAggression.Aggression.class) != null) {
-					state = HUNTING;
+					setState(HUNTING, "Aggression effect target acquired");
 					return ch;
 				}
 			}
@@ -438,7 +517,7 @@ public abstract class Mob extends Char {
 	public boolean add( Buff buff ) {
 		if (super.add( buff )) {
 			if (buff instanceof Amok || buff instanceof AllyBuff) {
-				state = HUNTING;
+				setState(HUNTING, "Buff added: " + buff.getClass().getSimpleName());
 			} else if (buff instanceof Terror || buff instanceof Dread) {
 				state = FLEEING;
 			} else if (buff instanceof Sleep) {
@@ -457,7 +536,7 @@ public abstract class Mob extends Char {
 					|| (buff instanceof Dread && buff(Terror.class) == null))) {
 				if (enemySeen) {
 					sprite.showStatus(CharSprite.WARNING, Messages.get(this, "rage"));
-					state = HUNTING;
+					setState(HUNTING, "Fear effect removed and enemy is visible");
 				} else {
 					state = WANDERING;
 				}
@@ -729,7 +808,7 @@ public abstract class Mob extends Char {
 		if (state != FLEEING) {
 			if (state != HUNTING) {
 				aggro(enemy);
-				target = enemy.pos;
+				setTargetCell(enemy.pos, "Aggro target position updated after defense");
 			} else {
 				recentlyAttackedBy.add(enemy);
 			}
@@ -777,14 +856,15 @@ public abstract class Mob extends Char {
 	}
 
 	public void aggro( Char ch ) {
-		enemy = ch;
+		setEnemy(ch, "Aggro target assigned");
+		
 		if (state != PASSIVE){
 			state = HUNTING;
 		}
 	}
 
 	public void clearEnemy(){
-		enemy = null;
+		setEnemy(null, "Enemy cleared");
 		enemySeen = false;
 		if (state == HUNTING) state = WANDERING;
 	}
@@ -798,15 +878,15 @@ public abstract class Mob extends Char {
 
 		if (!isInvulnerable(src.getClass())) {
 			if (state == SLEEPING) {
-				state = WANDERING;
+				setState(WANDERING, "Damaged while sleeping");
 			}
 			if (!(src instanceof Corruption) && state != FLEEING) {
 				if (state != HUNTING) {
-					alerted = true;
+					setAlerted(true, "Mob damaged while not hunting");
 					//assume the hero is hitting us in these common cases
 					if (src instanceof Wand || src instanceof ClericSpell || src instanceof ArmorAbility) {
 						aggro(Dungeon.hero);
-						target = Dungeon.hero.pos;
+						setTargetCell(Dungeon.hero.pos, "Damaged by ranged hero source");
 					}
 				} else {
 					if (src instanceof Wand || src instanceof ClericSpell || src instanceof ArmorAbility) {
@@ -1020,7 +1100,7 @@ public abstract class Mob extends Char {
 		notice();
 		
 		if (state != HUNTING && state != FLEEING) {
-			state = WANDERING;
+			setState(WANDERING, "Mob beckoned");
 		}
 		target = cell;
 	}
@@ -1121,12 +1201,12 @@ public abstract class Mob extends Char {
 			if (enemyInFOV) {
 				enemySeen = true;
 				notice();
-				state = HUNTING;
-				target = enemy.pos;
+				setState(HUNTING, "Awakened with enemy in FOV");
+				setTargetCell(enemy.pos, "Awakened target acquired");
 			} else {
 				notice();
-				state = WANDERING;
-				target = Dungeon.level.randomDestination( Mob.this );
+				setState(WANDERING, "Awakened without enemy in FOV");
+				setTargetCell(Dungeon.level.randomDestination( Mob.this ), "Awakened random destination");
 			}
 
 			if (alignment == Alignment.ENEMY && Dungeon.isChallenged(Challenges.SWARM_INTELLIGENCE)) {
@@ -1163,9 +1243,9 @@ public abstract class Mob extends Char {
 			enemySeen = true;
 			
 			notice();
-			alerted = true;
-			state = HUNTING;
-			target = enemy.pos;
+			setAlerted(true, "Enemy noticed while wandering");
+			setState(HUNTING, "Enemy noticed while wandering");
+			setTargetCell(enemy.pos, "Enemy noticed while wandering");
 			
 			if (alignment == Alignment.ENEMY && Dungeon.isChallenged( Challenges.SWARM_INTELLIGENCE )) {
 				for (Mob mob : Dungeon.level.mobs) {
@@ -1188,7 +1268,7 @@ public abstract class Mob extends Char {
 				spend( 1 / speed() );
 				return moveSprite( oldPos, pos );
 			} else {
-				target = randomDestination();
+				setTargetCell(randomDestination(), "Continue wandering");
 				spend( TICK );
 			}
 			
@@ -1217,7 +1297,7 @@ public abstract class Mob extends Char {
 			if (enemyInFOV && !isCharmedBy( enemy ) && canAttack( enemy )) {
 
 				recentlyAttackedBy.clear();
-				target = enemy.pos;
+				setTargetCell(enemy.pos, "Attacking visible enemy");
 				return doAttack( enemy );
 
 			} else {
@@ -1229,8 +1309,8 @@ public abstract class Mob extends Char {
 					for (Char ch : recentlyAttackedBy){
 						if (ch != null && ch.isActive() && Actor.chars().contains(ch) && alignment != ch.alignment && fieldOfView[ch.pos] && ch.invisible == 0 && !isCharmedBy(ch)) {
 							if (canAttack(ch) || enemy == null || Dungeon.level.distance(pos, ch.pos) < Dungeon.level.distance(pos, enemy.pos)) {
-								enemy = ch;
-								target = ch.pos;
+								setEnemy(ch, "Swapped to recently attacking enemy");
+								setTargetCell(ch.pos, "Swapped to recently attacking enemy");
 								enemyInFOV = true;
 								swapped = true;
 							}
@@ -1243,11 +1323,11 @@ public abstract class Mob extends Char {
 				}
 
 				if (enemyInFOV) {
-					target = enemy.pos;
+					setTargetCell(enemy.pos, "Tracking visible enemy");
 				} else if (enemy == null) {
 					sprite.showLost();
-					state = WANDERING;
-					target = ((Mob.Wandering)WANDERING).randomDestination();
+					setState(WANDERING, "Enemy lost while hunting");
+					setTargetCell(((Mob.Wandering)WANDERING).randomDestination(), "Enemy lost while hunting");
 					spend( TICK );
 					return true;
 				}
@@ -1264,9 +1344,9 @@ public abstract class Mob extends Char {
 					//unless we have already done that and still can't move toward them, then move on.
 					if (!recursing) {
 						Char oldEnemy = enemy;
-						enemy = null;
-						enemy = chooseEnemy();
-						if (enemy != null && enemy != oldEnemy) {
+						Char nextEnemy = chooseEnemy();
+						if (nextEnemy != null && nextEnemy != oldEnemy) {
+							setEnemy(nextEnemy, "Switched to closer reachable enemy");
 							recursing = true;
 							boolean result = act(enemyInFOV, justAlerted);
 							recursing = false;
@@ -1277,8 +1357,8 @@ public abstract class Mob extends Char {
 					spend( TICK );
 					if (!enemyInFOV) {
 						sprite.showLost();
-						state = WANDERING;
-						target = ((Mob.Wandering)WANDERING).randomDestination();
+						setState(WANDERING, "Could not path to enemy");
+						setTargetCell(((Mob.Wandering)WANDERING).randomDestination(), "Could not path to enemy");
 					}
 					return true;
 				}
@@ -1303,7 +1383,7 @@ public abstract class Mob extends Char {
 			
 			//if enemy isn't in FOV, keep running from their previous position.
 			} else if (enemyInFOV) {
-				target = enemy.pos;
+				setTargetCell(enemy.pos, "Fleeing from visible enemy");
 			}
 
 			int oldPos = pos;
@@ -1330,9 +1410,9 @@ public abstract class Mob extends Char {
 			if (buff( Terror.class ) == null && buff( Dread.class ) == null) {
 				if (enemySeen) {
 					sprite.showStatus(CharSprite.WARNING, Messages.get(Mob.class, "rage"));
-					state = HUNTING;
+					setState(HUNTING, "No escape path while enemy seen");
 				} else {
-					state = WANDERING;
+					setState(WANDERING, "No escape path and enemy not seen");
 				}
 			}
 		}

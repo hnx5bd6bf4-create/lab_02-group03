@@ -60,7 +60,7 @@ public class GatewayTrap extends Trap {
 				if (ch != null){
 					if (ScrollOfTeleportation.teleportChar(ch)) {
 						if (ch instanceof Mob && ((Mob) ch).state == ((Mob) ch).HUNTING) {
-							((Mob) ch).state = ((Mob) ch).WANDERING;
+							((Mob) ch).setState(((Mob) ch).WANDERING, "Teleported by Gateway Trap");
 						}
 						telePos = ch.pos;
 						break;
@@ -125,7 +125,7 @@ public class GatewayTrap extends Trap {
 
 						if (ScrollOfTeleportation.teleportToLocation(ch, newPos)){
 							if (ch instanceof Mob && ((Mob) ch).state == ((Mob) ch).HUNTING) {
-								((Mob) ch).state = ((Mob) ch).WANDERING;
+								((Mob) ch).setState(((Mob) ch).WANDERING, "Moved by Gateway Trap");
 							}
 						}
 					}

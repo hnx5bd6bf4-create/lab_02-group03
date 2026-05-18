@@ -52,7 +52,9 @@ public class PhaseShift extends TargetedSpell {
 			if (ScrollOfTeleportation.teleportChar(ch)){
 
 				if (ch instanceof Mob) {
-					if (((Mob) ch).state == ((Mob) ch).HUNTING) ((Mob) ch).state = ((Mob) ch).WANDERING;
+					if (((Mob) ch).state == ((Mob) ch).HUNTING) {
+						((Mob) ch).setState(((Mob) ch).WANDERING, "Teleported by Phase Shift");
+					}
 					((Mob) ch).beckon(Dungeon.level.randomDestination( ch ));
 				}
 				if (!Char.hasProp(ch, Char.Property.BOSS) && !Char.hasProp(ch, Char.Property.MINIBOSS)) {

@@ -26,6 +26,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.blobs.Blob;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
+import com.shatteredpixel.shatteredpixeldungeon.utils.MobBehaviorLogger;
 import com.watabou.noosa.Game;
 import com.watabou.utils.Bundlable;
 import com.watabou.utils.Bundle;
@@ -164,6 +165,7 @@ public abstract class Actor implements Bundlable {
 		chars.clear();
 
 		ids.clear();
+		MobBehaviorLogger.resetSessionTracking();
 	}
 
 	public static synchronized void fixTime() {
@@ -222,6 +224,7 @@ public abstract class Actor implements Bundlable {
 
 	public static void resetNextID(){
 		nextID = 1;
+		MobBehaviorLogger.resetSessionTracking();
 	}
 
 	/*protected*/public void next() {

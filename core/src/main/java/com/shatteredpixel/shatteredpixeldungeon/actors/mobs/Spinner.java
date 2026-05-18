@@ -125,7 +125,7 @@ public class Spinner extends Mob {
 			duration = Math.round(duration * (AscensionChallenge.statModifier(this)/2f + 0.5f));
 			Buff.affect(enemy, Poison.class).set(duration);
 			webCoolDown = 0;
-			state = FLEEING;
+			setState(FLEEING, "Spinner poisoned enemy and started fleeing");
 		}
 
 		return damage;
@@ -251,7 +251,7 @@ public class Spinner extends Mob {
 		public boolean act(boolean enemyInFOV, boolean justAlerted) {
 			if (buff( Terror.class ) == null && buff( Dread.class ) == null &&
 					enemyInFOV && enemy.buff( Poison.class ) == null){
-				state = HUNTING;
+				setState(HUNTING, "Spinner stopped fleeing after poison wore off");
 				return true;
 			}
 

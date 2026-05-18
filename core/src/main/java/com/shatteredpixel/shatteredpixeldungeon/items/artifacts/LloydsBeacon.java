@@ -243,7 +243,7 @@ public class LloydsBeacon extends Artifact {
 
 											ch.pos = pos;
 											if (ch instanceof Mob && ((Mob) ch).state == ((Mob) ch).HUNTING){
-												((Mob) ch).state = ((Mob) ch).WANDERING;
+												((Mob) ch).setState(((Mob) ch).WANDERING, "Teleported by Lloyd's Beacon");
 											}
 											ch.sprite.place(ch.pos);
 											ch.sprite.visible = Dungeon.level.heroFOV[pos];

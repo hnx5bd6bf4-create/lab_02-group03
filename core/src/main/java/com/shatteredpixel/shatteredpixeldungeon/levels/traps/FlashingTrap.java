@@ -55,7 +55,9 @@ public class FlashingTrap extends Trap {
 			Buff.prolong( c, Cripple.class, Cripple.DURATION*2f );
 			
 			if (c instanceof Mob) {
-				if (((Mob)c).state == ((Mob)c).HUNTING) ((Mob)c).state = ((Mob)c).WANDERING;
+				if (((Mob)c).state == ((Mob)c).HUNTING) {
+					((Mob)c).setState(((Mob)c).WANDERING, "Flashed by Flashing Trap");
+				}
 				((Mob)c).beckon( Dungeon.level.randomDestination( c ) );
 			}
 		}

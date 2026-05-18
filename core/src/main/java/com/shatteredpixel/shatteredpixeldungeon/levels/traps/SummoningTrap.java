@@ -79,7 +79,7 @@ public class SummoningTrap extends Trap {
 				mob = Dungeon.level.createMob();
 			}
 			if (mob != null) {
-				mob.state = mob.WANDERING;
+				mob.setState(mob.WANDERING, "Summoned by Summoning Trap");
 				mob.pos = point;
 				GameScene.add(mob, DELAY);
 				mobs.add(mob);

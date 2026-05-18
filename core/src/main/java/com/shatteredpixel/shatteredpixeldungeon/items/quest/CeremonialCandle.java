@@ -185,7 +185,7 @@ public class CeremonialCandle extends Item {
 			} else {
 				elemental.pos = ritualPos;
 			}
-			elemental.state = elemental.HUNTING;
+			elemental.setState(elemental.HUNTING, "Summoned by ceremonial candle ritual");
 			GameScene.add(elemental, 1);
 
 			if (Dungeon.level instanceof PrisonLevel){

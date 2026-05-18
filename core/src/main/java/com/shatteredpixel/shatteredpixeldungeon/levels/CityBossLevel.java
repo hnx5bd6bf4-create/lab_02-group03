@@ -323,7 +323,7 @@ public class CityBossLevel extends Level {
 		Mob.restoreAllies(this, Dungeon.hero.pos, doorPos);
 
 		DwarfKing boss = new DwarfKing();
-		boss.state = boss.WANDERING;
+		boss.setState(boss.WANDERING, "Dwarf King boss spawned in arena");
 		boss.pos = pointToCell(arena.center());
 		GameScene.add( boss );
 		boss.beckon(Dungeon.hero.pos);
