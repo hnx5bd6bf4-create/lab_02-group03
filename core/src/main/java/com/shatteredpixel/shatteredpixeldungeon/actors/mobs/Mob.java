@@ -859,7 +859,8 @@ public abstract class Mob extends Char {
 		setEnemy(ch, "Aggro target assigned");
 		
 		if (state != PASSIVE){
-			state = HUNTING;
+			setAlerted(true, "Aggro triggered");
+			setState(HUNTING, "Aggro triggered");
 		}
 	}
 

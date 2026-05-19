@@ -1,11 +1,53 @@
 apply plugin: 'java-library'
+apply plugin: 'jacoco'
 
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 sourceCompatibility = targetCompatibility = appJavaCompatibility
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, include: [
+                '**/utils/MobBehaviorLogger.class'
+            ])
+        }))
+    }
+}
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    violationRules {
+        rule {
+            element = 'CLASS'
+            includes = ['com.shatteredpixel.shatteredpixeldungeon.utils.MobBehaviorLogger']
+            limit {
+                counter = 'LINE'
+                value   = 'COVEREDRATIO'
+                minimum = 0.70
+            }
+        }
+    }
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
 
 dependencies {
     api project(':SPD-classes')
     implementation project(':services')
 
     testImplementation 'junit:junit:4.13.2'
+    testRuntimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
 }
+

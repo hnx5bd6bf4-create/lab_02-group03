@@ -1,12 +1,11 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.utils;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.files.FileHandle;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -16,9 +15,27 @@ import java.util.Set;
 
 public class MobBehaviorLogger {
 
-    private static final String LOG_FILE = "mob-behaviour.log";
+    // Fixed absolute log path: ~/Library/Application Support/Shattered Pixel Dungeon/mob-behaviour.log (macOS)
+    // Falls back to user.home/mob-behaviour.log on other platforms
+    private static final String LOG_FILE = resolveLogFilePath();
     private static final SimpleDateFormat DATE_FORMAT =
             new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
+
+    private static String resolveLogFilePath() {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.US);
+        String home = System.getProperty("user.home", ".");
+        if (os.contains("mac")) {
+            return home + "/Library/Application Support/Shattered Pixel Dungeon/mob-behaviour.log";
+        } else if (os.contains("win")) {
+            String appData = System.getenv("APPDATA");
+            if (appData == null) appData = home + "/AppData/Roaming";
+            return appData + "/.watabou/Shattered Pixel Dungeon/mob-behaviour.log";
+        } else {
+            String xdg = System.getenv("XDG_DATA_HOME");
+            if (xdg == null) xdg = home + "/.local/share";
+            return xdg + "/.watabou/shattered-pixel-dungeon/mob-behaviour.log";
+        }
+    }
     private static final String UNKNOWN_REASON = "unspecified";
 
     private static final Set<Integer> trackedMobs = new HashSet<>();
@@ -27,10 +44,18 @@ public class MobBehaviorLogger {
     private static final HashMap<Integer, Integer> lastTargetCells = new HashMap<>();
     private static final HashMap<Integer, Boolean> lastAlertStates = new HashMap<>();
 
-    public static boolean enabled = true;
+    private static boolean enabled = true;
 
     private MobBehaviorLogger() {
         // Utility class
+    }
+
+    public static boolean isEnabled() {
+        return enabled;
+    }
+
+    public static void setEnabled(boolean enabled) {
+        MobBehaviorLogger.enabled = enabled;
     }
 
     public static void resetSessionTracking() {
@@ -179,8 +204,14 @@ public class MobBehaviorLogger {
         System.out.println(line);
 
         try {
-            FileHandle file = Gdx.files.local(LOG_FILE);
-            file.writeString(line + System.lineSeparator(), true);
+            File logFile = new File(LOG_FILE);
+            File parent = logFile.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            java.io.FileWriter fw = new java.io.FileWriter(logFile, true);
+            fw.write(line + System.lineSeparator());
+            fw.close();
         } catch (Exception e) {
             System.out.println("[MobBehaviorLogger] Failed to write log file: " + e.getMessage());
         }
