@@ -21,15 +21,20 @@
 
 package com.shatteredpixel.shatteredpixeldungeon;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.TitleScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.WelcomeScene;
+import com.shatteredpixel.shatteredpixeldungeon.utils.Screenshot;
+import com.watabou.input.KeyEvent;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.audio.Music;
 import com.watabou.noosa.audio.Sample;
 import com.watabou.utils.DeviceCompat;
 import com.watabou.utils.PlatformSupport;
+import com.watabou.utils.Signal;
 
 public class ShatteredPixelDungeon extends Game {
 
@@ -42,6 +47,8 @@ public class ShatteredPixelDungeon extends Game {
 	public static final int v2_5_4 = 802;
 
 	public static final int v3_0_0 = 831;
+
+	private Signal.Listener<KeyEvent> screenshotListener;
 	
 	public ShatteredPixelDungeon( PlatformSupport platform ) {
 		super( sceneClass == null ? WelcomeScene.class : sceneClass, platform );
@@ -98,6 +105,14 @@ public class ShatteredPixelDungeon extends Game {
 
 		updateSystemUI();
 		SPDAction.loadBindings();
+
+		screenshotListener = new Signal.Listener<KeyEvent>() {
+			@Override
+			public boolean onSignal( KeyEvent event ) {
+				return handleScreenshotShortcut( event );
+			}
+		};
+		refreshScreenshotListener();
 		
 		Music.INSTANCE.enable( SPDSettings.music() );
 		Music.INSTANCE.volume( SPDSettings.musicVol()*SPDSettings.musicVol()/100f );
@@ -143,6 +158,7 @@ public class ShatteredPixelDungeon extends Game {
 	@Override
 	protected void switchScene() {
 		super.switchScene();
+		refreshScreenshotListener();
 		if (scene instanceof PixelScene){
 			((PixelScene) scene).restoreWindows();
 		}
@@ -168,12 +184,37 @@ public class ShatteredPixelDungeon extends Game {
 	
 	@Override
 	public void destroy(){
+		if (screenshotListener != null){
+			KeyEvent.removeKeyListener(screenshotListener);
+			screenshotListener = null;
+		}
 		super.destroy();
 		GameScene.endActorThread();
 	}
 	
 	public void updateDisplaySize(){
 		platform.updateDisplaySize();
+	}
+
+	private boolean handleScreenshotShortcut( KeyEvent event ){
+		if (event.pressed && Screenshot.isShortcut( event.code,
+				Gdx.input.isKeyPressed( Input.Keys.ALT_LEFT )
+				|| Gdx.input.isKeyPressed( Input.Keys.ALT_RIGHT ))) {
+			try {
+				Screenshot.capture();
+			} catch (Exception e) {
+				reportException( e );
+			}
+			return true;
+		}
+		return false;
+	}
+
+	private void refreshScreenshotListener(){
+		if (screenshotListener != null){
+			KeyEvent.removeKeyListener( screenshotListener );
+			KeyEvent.addKeyListener( screenshotListener );
+		}
 	}
 
 	public static void updateSystemUI() {
