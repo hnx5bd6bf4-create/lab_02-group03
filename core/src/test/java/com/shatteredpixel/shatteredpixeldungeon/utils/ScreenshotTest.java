@@ -22,14 +22,25 @@
 package com.shatteredpixel.shatteredpixeldungeon.utils;
 
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.files.FileHandle;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
+import java.io.File;
+import java.io.IOException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class ScreenshotTest {
+
+	@Rule
+	public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
 	@Test
 	public void filenameUsesTimestampWhenAvailable() {
@@ -67,6 +78,58 @@ public class ScreenshotTest {
 	}
 
 	@Test
+	public void timestampUsesStableScreenshotFormat() {
+		String timestamp = Screenshot.timestamp(0L);
+
+		assertTrue(timestamp.matches("\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}"));
+	}
+
+	@Test
+	public void currentTimestampUsesStableScreenshotFormat() {
+		String timestamp = Screenshot.timestamp();
+
+		assertTrue(timestamp.matches("\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}"));
+	}
+
+	@Test
+	public void captureCreatesScreenshotDirectoryAndWritesPng() {
+		FakeScreenshotIO io = new FakeScreenshotIO();
+
+		FileHandle file = Screenshot.capture("2026-05-12_17-30-05", io);
+
+		assertEquals("screenshots/screenshot-2026-05-12_17-30-05.png", relativePath(file));
+		assertTrue(new File(temporaryFolder.getRoot(), "screenshots").isDirectory());
+		assertEquals("screenshots/screenshot-2026-05-12_17-30-05.png", io.writtenPath);
+		assertEquals("screenshots/screenshot-2026-05-12_17-30-05.png", io.loggedPath);
+		assertTrue(io.disposed);
+		assertSame(io.frame, io.writtenFrame);
+	}
+
+	@Test
+	public void captureUsesNextSequenceWhenFilesAlreadyExist() throws IOException {
+		File screenshotDir = temporaryFolder.newFolder("screenshots");
+		assertTrue(new File(screenshotDir, "screenshot-2026-05-12_17-30-05.png").createNewFile());
+		assertTrue(new File(screenshotDir, "screenshot-2026-05-12_17-30-05-1.png").createNewFile());
+		FakeScreenshotIO io = new FakeScreenshotIO();
+
+		FileHandle file = Screenshot.capture("2026-05-12_17-30-05", io);
+
+		assertEquals("screenshots/screenshot-2026-05-12_17-30-05-2.png", relativePath(file));
+		assertEquals("screenshots/screenshot-2026-05-12_17-30-05-2.png", io.writtenPath);
+	}
+
+	@Test
+	public void captureDisposesFrameWhenWriteFails() {
+		FakeScreenshotIO io = new FakeScreenshotIO();
+		io.failWrite = true;
+
+		assertThrows(RuntimeException.class, () -> Screenshot.capture("2026-05-12_17-30-05", io));
+		assertTrue(io.disposed);
+		assertEquals("screenshots/screenshot-2026-05-12_17-30-05.png", io.writtenPath);
+		assertEquals(null, io.loggedPath);
+	}
+
+	@Test
 	public void altSIsScreenshotShortcut() {
 		assertTrue(Screenshot.isShortcut(Input.Keys.S, true));
 	}
@@ -91,5 +154,48 @@ public class ScreenshotTest {
 	public void lowercaseAndUppercaseSUseSameKeyCode() {
 		assertEquals(Input.Keys.S, Input.Keys.valueOf("S"));
 		assertTrue(Screenshot.isShortcut(Input.Keys.valueOf("S"), true));
+	}
+
+	private String relativePath(FileHandle file) {
+		return temporaryFolder.getRoot().toPath().relativize(file.file().toPath()).toString().replace('\\', '/');
+	}
+
+	private class FakeScreenshotIO implements Screenshot.ScreenshotIO<Object> {
+
+		private final Object frame = new Object();
+		private boolean failWrite;
+		private boolean disposed;
+		private Object writtenFrame;
+		private String writtenPath;
+		private String loggedPath;
+
+		@Override
+		public FileHandle fileFor(String path) {
+			return new FileHandle(new File(temporaryFolder.getRoot(), path));
+		}
+
+		@Override
+		public Object currentFrame() {
+			return frame;
+		}
+
+		@Override
+		public void writePNG(FileHandle file, Object frame) {
+			writtenPath = relativePath(file);
+			writtenFrame = frame;
+			if (failWrite) {
+				throw new RuntimeException("write failed");
+			}
+		}
+
+		@Override
+		public void dispose(Object frame) {
+			disposed = true;
+		}
+
+		@Override
+		public void logSaved(FileHandle file) {
+			loggedPath = relativePath(file);
+		}
 	}
 }

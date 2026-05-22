@@ -17,10 +17,11 @@ The screenshot improvement adds an in-game keyboard shortcut for capturing the c
 | Capture the current game scene from a designated key | global `Alt+S` listener in `ShatteredPixelDungeon` | `ScreenshotTest.altSIsScreenshotShortcut` |
 | Avoid accidental capture from normal movement | screenshot shortcut requires Alt to be held while pressing `S` | `ScreenshotTest.plainSIsNotScreenshotShortcut` |
 | Avoid accidental capture from other Alt shortcuts | only `Alt+S` is accepted, not Alt alone or other Alt key combinations | `ScreenshotTest.otherAltKeysAreNotScreenshotShortcut`, `ScreenshotTest.altKeyAloneIsNotScreenshotShortcut` |
-| Save the captured screen as an image file | `Screenshot.capture()` writes a PNG via libGDX `PixmapIO.writePNG` | Manual system test below |
-| Do not interrupt game flow | Listener writes directly to disk and logs the saved path, with no window or scene change | Manual gameplay test below |
+| Save the captured screen as an image file | `Screenshot.capture()` writes a PNG via libGDX `PixmapIO.writePNG` | `ScreenshotTest.captureCreatesScreenshotDirectoryAndWritesPng`, manual system test below |
+| Do not interrupt game flow | Listener writes directly to disk and logs the saved path, with no window or scene change | `ScreenshotTest.captureCreatesScreenshotDirectoryAndWritesPng`, manual gameplay test below |
 | Use a predictable recovery location | `Screenshot.pathFor(...)` stores files under `screenshots/` | `ScreenshotTest.screenshotPathUsesDedicatedDirectory` |
-| Avoid overwriting screenshots | `Screenshot.filename(...)` appends a sequence when needed | `ScreenshotTest.filenameAddsSequenceWhenSameSecondAlreadyExists`, `ScreenshotTest.filenameAddsFirstSequenceForFirstDuplicate` |
+| Avoid overwriting screenshots | `Screenshot.filename(...)` appends a sequence when needed | `ScreenshotTest.filenameAddsSequenceWhenSameSecondAlreadyExists`, `ScreenshotTest.captureUsesNextSequenceWhenFilesAlreadyExist` |
+| Dispose captured frame resources even when writing fails | `Screenshot.capture(...)` disposes the captured frame in a `finally` block | `ScreenshotTest.captureDisposesFrameWhenWriteFails` |
 
 ## Automated Tests
 
@@ -45,13 +46,18 @@ Automated test cases:
 - `filenameAddsFirstSequenceForFirstDuplicate`
 - `filenameDoesNotAddSequenceForNegativeInput`
 - `screenshotPathUsesDedicatedDirectory`
+- `timestampUsesStableScreenshotFormat`
+- `currentTimestampUsesStableScreenshotFormat`
+- `captureCreatesScreenshotDirectoryAndWritesPng`
+- `captureUsesNextSequenceWhenFilesAlreadyExist`
+- `captureDisposesFrameWhenWriteFails`
 - `altSIsScreenshotShortcut`
 - `plainSIsNotScreenshotShortcut`
 - `otherAltKeysAreNotScreenshotShortcut`
 - `altKeyAloneIsNotScreenshotShortcut`
 - `lowercaseAndUppercaseSUseSameKeyCode`
 
-These tests verify the deterministic parts of the feature without requiring an OpenGL context.
+These tests verify the deterministic shortcut, filename, duplicate handling, directory creation, logging callback, and resource cleanup behavior without requiring an OpenGL context.
 
 ## Manual System Test
 

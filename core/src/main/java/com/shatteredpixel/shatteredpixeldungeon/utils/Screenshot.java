@@ -21,14 +21,8 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.utils;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.utils.BufferUtils;
-import com.badlogic.gdx.utils.ScreenUtils;
-import com.watabou.utils.FileUtils;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -39,22 +33,24 @@ public class Screenshot {
 	private static final String DIR = "screenshots";
 	private static final String PREFIX = "screenshot-";
 	private static final String EXTENSION = ".png";
-	private static final String LOG_TAG = "Screenshot";
 
 	public static FileHandle capture() {
-		FileHandle file = nextFile(timestamp());
+		return capture(timestamp(), new GdxScreenshotIO());
+	}
+
+	static <T> FileHandle capture(String timestamp, ScreenshotIO<T> io) {
+		FileHandle file = nextFile(timestamp, io);
 		FileHandle parent = file.parent();
 		if (parent != null) parent.mkdirs();
 
-		Pixmap pixmap = currentFrame();
+		T frame = io.currentFrame();
 		try {
-			PixmapIO.writePNG(file, pixmap);
+			io.writePNG(file, frame);
 		} finally {
-			pixmap.dispose();
+			io.dispose(frame);
 		}
 
-		Gdx.app.log(LOG_TAG, "Saved screenshot to " + file.path());
-		GLog.p("Screenshot saved: " + file.path());
+		io.logSaved(file);
 		return file;
 	}
 
@@ -74,26 +70,37 @@ public class Screenshot {
 		}
 	}
 
-	private static FileHandle nextFile(String timestamp) {
+	private static <T> FileHandle nextFile(String timestamp, ScreenshotIO<T> io) {
 		int sequence = 0;
 		FileHandle file;
 		do {
-			file = FileUtils.getFileHandle(pathFor(filename(timestamp, sequence++)));
+			file = io.fileFor(pathFor(filename(timestamp, sequence++)));
 		} while (file.exists());
 		return file;
 	}
 
-	private static String timestamp() {
-		return new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(new Date());
+	static String timestamp() {
+		return timestamp(new Date());
 	}
 
-	private static Pixmap currentFrame() {
-		int width = Gdx.graphics.getBackBufferWidth();
-		int height = Gdx.graphics.getBackBufferHeight();
-		byte[] pixels = ScreenUtils.getFrameBufferPixels(0, 0, width, height, true);
+	static String timestamp(long time) {
+		return timestamp(new Date(time));
+	}
 
-		Pixmap pixmap = new Pixmap(width, height, Pixmap.Format.RGBA8888);
-		BufferUtils.copy(pixels, 0, pixmap.getPixels(), pixels.length);
-		return pixmap;
+	private static String timestamp(Date date) {
+		return new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(date);
+	}
+
+	interface ScreenshotIO<T> {
+
+		FileHandle fileFor(String path);
+
+		T currentFrame();
+
+		void writePNG(FileHandle file, T frame);
+
+		void dispose(T frame);
+
+		void logSaved(FileHandle file);
 	}
 }
